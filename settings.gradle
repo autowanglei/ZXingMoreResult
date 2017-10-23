@@ -1,1 +1,1 @@
-include ':rq_scan', ':libzxing'
+include ':rqScan', ':libzxing'

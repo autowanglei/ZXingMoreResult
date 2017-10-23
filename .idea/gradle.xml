@@ -10,7 +10,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/libzxing" />
-            <option value="$PROJECT_DIR$/rq_scan" />
+            <option value="$PROJECT_DIR$/rqScan" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

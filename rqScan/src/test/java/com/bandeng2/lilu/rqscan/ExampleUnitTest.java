@@ -1,4 +1,4 @@
-package com.bandeng2.lilu.rq_scan;
+package com.bandeng2.lilu.rqscan;
 
 import org.junit.Test;
 

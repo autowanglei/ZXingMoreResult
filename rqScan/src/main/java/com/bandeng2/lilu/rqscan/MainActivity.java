@@ -1,4 +1,4 @@
-package com.bandeng2.lilu.rq_scan;
+package com.bandeng2.lilu.rqscan;
 
 import android.Manifest;
 import android.app.Activity;
@@ -15,7 +15,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bandeng2.lilu.rqscan.utils.FinderPatternIndex;
+import com.bandeng2.lilu.rqscan.utils.QRDirection;
 import com.xys.libzxing.zxing.activity.CaptureActivity;
+import com.xys.libzxing.zxing.activity.ResultParcel;
 import com.xys.libzxing.zxing.encoding.EncodingUtils;
 
 import java.util.ArrayList;
@@ -55,7 +58,27 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, CaptureActivity.class);
         // 要有返回结果
         startActivityForResult(intent, 1);
+    }
 
+    private String getDirectionStr( int direction ) {
+        String directionStr = "未知";
+        switch (direction) {
+            case QRDirection.DIRECTION_UP:
+                directionStr = "上↑";
+                break;
+            case QRDirection.DIRECTION_RIGHT:
+                directionStr = "右→";
+                break;
+            case QRDirection.DIRECTION_DOWN:
+                directionStr = "下↓";
+                break;
+            case QRDirection.DIRECTION_LEFT:
+                directionStr = "左←";
+                break;
+            default:
+                break;
+        }
+        return directionStr;
     }
 
     @Override
@@ -63,15 +86,20 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == Activity.RESULT_OK) {
-
-
-            ArrayList<String> result = data.getStringArrayListExtra("result");
-
+            ArrayList<ResultParcel> resultParcels = data.getParcelableArrayListExtra(CaptureActivity.RESULT_LIST);
             String s = "";
-
-            for (int i = 0; i < result.size(); i++) {
-                s += "第" + i + "个结果：" + result.get(i) + "\n";
+            for (int i = 0; i < resultParcels.size(); i++) {
+                int direction = QRDirection.getQRPicDirection(resultParcels.get(i).getResultPoints());
+                s += "第" + i + "个结果：" + resultParcels.get(i).getText() + "\n方向：" + direction + " " + getDirectionStr
+                        (direction) + "\n";
             }
+
+//            ArrayList<String> result = data.getStringArrayListExtra("result");
+//
+////
+//            for (int i = 0; i < resultParcels.size(); i++) {
+//                s += "第" + i + "个结果：" + result.get(i) + "\n";
+//            }
 
             tv_rsult.setText(s);
         }

@@ -33,6 +33,7 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
 import com.google.zxing.Result;
+import com.google.zxing.ResultPoint;
 import com.xys.libzxing.R;
 import com.xys.libzxing.zxing.camera.CameraManager;
 import com.xys.libzxing.zxing.decode.DecodeThread;
@@ -44,6 +45,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -57,7 +59,7 @@ import java.util.List;
  */
 public final class CaptureActivity extends Activity implements SurfaceHolder.Callback {
 
-//    private static final String TAG = CaptureActivity.class.getSimpleName();
+    //    private static final String TAG = CaptureActivity.class.getSimpleName();
     private static final String TAG = "123";
 
     private CameraManager cameraManager;
@@ -73,6 +75,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     private Rect mCropRect = null;
     private boolean isHasSurface = false;
 
+    public final static String RESULT_LIST = "resultList";
+
     public Handler getHandler() {
         return handler;
     }
@@ -82,7 +86,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     }
 
     @Override
-    public void onCreate(Bundle icicle) {
+    public void onCreate( Bundle icicle ) {
         super.onCreate(icicle);
 
         Window window = getWindow();
@@ -157,7 +161,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+    public void surfaceCreated( SurfaceHolder holder ) {
         if (holder == null) {
             Log.e(TAG, "*** WARNING *** surfaceCreated() gave us a null surface!");
         }
@@ -168,12 +172,12 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
+    public void surfaceDestroyed( SurfaceHolder holder ) {
         isHasSurface = false;
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void surfaceChanged( SurfaceHolder holder, int format, int width, int height ) {
 
     }
 
@@ -182,7 +186,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
      * the results.
      *
      * @param resultList The contents of the barcode.
-     * @param bundle    The extras
+     * @param bundle     The extras
      */
 //    public void handleDecode(Result rawResult, Bundle bundle) {
 //        inactivityTimer.onActivity();
@@ -196,8 +200,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 //        this.setResult(RESULT_OK, resultIntent);
 //        CaptureActivity.this.finish();
 //    }
-
-    public void handleDecode(List<Result> resultList, Bundle bundle) {
+    public void handleDecode( List<Result> resultList, Bundle bundle ) {
         inactivityTimer.onActivity();
         beepManager.playBeepSoundAndVibrate();
 
@@ -205,22 +208,33 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         bundle.putInt("width", mCropRect.width());
         bundle.putInt("height", mCropRect.height());
 
-        Log.d(TAG, "handleDecode() returned: " + resultList.size()+"---"+resultList.toString());
+        Log.d(TAG, "handleDecode() returned: " + resultList.size() + "---" + resultList.toString());
 
-        ArrayList<String> lis=new ArrayList<>();
-        for (int i = 0; i <resultList.size() ; i++) {
+        ArrayList<String> lis = new ArrayList<>();
+        for (int i = 0; i < resultList.size(); i++) {
 
             lis.add(resultList.get(i).getText());
 
         }
-        bundle.putStringArrayList("result",lis);
+        ArrayList<ResultParcel> listRseult = new ArrayList<>();
+
+        for (int i = 0; i < resultList.size(); i++) {
+            ArrayList<ResultPointParcel> pointParcels = new ArrayList<>();
+            ResultPoint[] points = resultList.get(i).getResultPoints();
+            for (int j = 0; j < points.length; j++) {
+                pointParcels.add(new ResultPointParcel(points[j].getX(), points[j].getY()));
+            }
+            listRseult.add(new ResultParcel(resultList.get(i).getText(), pointParcels));
+        }
+        bundle.putStringArrayList("result", lis);
+        bundle.putParcelableArrayList(RESULT_LIST, listRseult);
 
         resultIntent.putExtras(bundle);
         this.setResult(RESULT_OK, resultIntent);
         CaptureActivity.this.finish();
     }
 
-    private void initCamera(SurfaceHolder surfaceHolder) {
+    private void initCamera( SurfaceHolder surfaceHolder ) {
         if (surfaceHolder == null) {
             throw new IllegalStateException("No SurfaceHolder provided");
         }
@@ -256,7 +270,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 
             @Override
-            public void onClick(DialogInterface dialog, int which) {
+            public void onClick( DialogInterface dialog, int which ) {
                 finish();
             }
 
@@ -264,14 +278,14 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
 
             @Override
-            public void onCancel(DialogInterface dialog) {
+            public void onCancel( DialogInterface dialog ) {
                 finish();
             }
         });
         builder.show();
     }
 
-    public void restartPreviewAfterDelay(long delayMS) {
+    public void restartPreviewAfterDelay( long delayMS ) {
         if (handler != null) {
             handler.sendEmptyMessageDelayed(R.id.restart_preview, delayMS);
         }
@@ -330,11 +344,10 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     }
 
 
+    public class MyResult implements Serializable {
+        private String text;
 
-    public class MyResult implements  Serializable{
-        private  String  text;
-
-        public MyResult(String text) {
+        public MyResult( String text ) {
             this.text = text;
         }
 
@@ -342,7 +355,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
             return text;
         }
 
-        public void setText(String text) {
+        public void setText( String text ) {
             this.text = text;
         }
     }
