@@ -15,7 +15,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.bandeng2.lilu.rqscan.utils.FinderPatternIndex;
 import com.bandeng2.lilu.rqscan.utils.QRDirection;
 import com.xys.libzxing.zxing.activity.CaptureActivity;
 import com.xys.libzxing.zxing.activity.ResultParcel;
@@ -60,6 +59,37 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(intent, 1);
     }
 
+    /**
+     * 根据手机屏幕方向改变获取的二维码方向
+     *
+     * @param picOrientation
+     * @param phoneOrientation
+     * @return
+     */
+    private int changePicOrientationByPhoneDirection( int picOrientation, int phoneOrientation ) {
+        int orientationMax = 4;
+        int tmpDirection;
+        switch (phoneOrientation) {
+            case CaptureActivity.DIRECTION_UP:
+                break;
+            case CaptureActivity.DIRECTION_RIGHT:
+                tmpDirection = picOrientation + 1;
+                picOrientation = tmpDirection < orientationMax ? tmpDirection : tmpDirection - orientationMax;
+                break;
+            case CaptureActivity.DIRECTION_DOWN:
+                tmpDirection = picOrientation - 2;
+                picOrientation = tmpDirection >= 0 ? tmpDirection : tmpDirection + orientationMax;
+                break;
+            case CaptureActivity.DIRECTION_LEFT:
+                tmpDirection = picOrientation - 1;
+                picOrientation = tmpDirection >= 0 ? tmpDirection : tmpDirection + orientationMax;
+                break;
+            default:
+                break;
+        }
+        return picOrientation;
+    }
+
     private String getDirectionStr( int direction ) {
         String directionStr = "未知";
         switch (direction) {
@@ -87,11 +117,13 @@ public class MainActivity extends AppCompatActivity {
 
         if (resultCode == Activity.RESULT_OK) {
             ArrayList<ResultParcel> resultParcels = data.getParcelableArrayListExtra(CaptureActivity.RESULT_LIST);
+            int phoneOrientation = data.getIntExtra(CaptureActivity.ORIENTATION, 0);
             String s = "";
             for (int i = 0; i < resultParcels.size(); i++) {
-                int direction = QRDirection.getQRPicDirection(resultParcels.get(i).getResultPoints());
-                s += "第" + i + "个结果：" + resultParcels.get(i).getText() + "\n方向：" + direction + " " + getDirectionStr
-                        (direction) + "\n";
+                int picDirection = QRDirection.getQRPicDirection(resultParcels.get(i).getResultPoints());
+                picDirection = changePicOrientationByPhoneDirection(picDirection, phoneOrientation);
+                s += "第" + i + "个结果：" + resultParcels.get(i).getText() + "\n方向：" + picDirection + " "
+                        + getDirectionStr(picDirection) + "\n";
             }
 
 //            ArrayList<String> result = data.getStringArrayListExtra("result");

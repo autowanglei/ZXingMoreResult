@@ -17,12 +17,18 @@ package com.xys.libzxing.zxing.activity;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.OrientationEventListener;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.Window;
@@ -45,7 +51,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -57,7 +62,7 @@ import java.util.List;
  * @author dswitkin@google.com (Daniel Switkin)
  * @author Sean Owen
  */
-public final class CaptureActivity extends Activity implements SurfaceHolder.Callback {
+public final class CaptureActivity extends Activity implements SurfaceHolder.Callback, SensorEventListener {
 
     private static final String TAG = CaptureActivity.class.getSimpleName();
 
@@ -75,6 +80,38 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     private boolean isHasSurface = false;
 
     public final static String RESULT_LIST = "resultList";
+    public final static String ORIENTATION = "orientation";
+    public final static int DIRECTION_UP = 0;
+    public final static int DIRECTION_RIGHT = 1;
+    public final static int DIRECTION_DOWN = 2;
+    public final static int DIRECTION_LEFT = 3;
+
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private Sensor magnetic;
+    private int mOrientation;
+    private float[] accelerometerValues = new float[3];
+    private float[] magneticFieldValues = new float[3];
+    private AlbumOrientationEventListener mAlbumOrientationEventListener;
+
+    private class AlbumOrientationEventListener extends OrientationEventListener {
+        public AlbumOrientationEventListener( Context context ) {
+            super(context);
+        }
+
+        public AlbumOrientationEventListener( Context context, int rate ) {
+            super(context, rate);
+        }
+
+        @Override
+        public void onOrientationChanged( int orientation ) {
+            if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
+                return;
+            }
+            mOrientation = orientation;
+        }
+    }
+
 
     public Handler getHandler() {
         return handler;
@@ -107,6 +144,18 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         animation.setRepeatCount(-1);
         animation.setRepeatMode(Animation.RESTART);
         scanLine.startAnimation(animation);
+
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        // 初始化加速度传感器
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        // 初始化地磁场传感器
+        magnetic = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+        mAlbumOrientationEventListener = new AlbumOrientationEventListener(this, SensorManager.SENSOR_DELAY_NORMAL);
+        if (mAlbumOrientationEventListener.canDetectOrientation()) {
+            mAlbumOrientationEventListener.enable();
+        }
+
     }
 
     @Override
@@ -136,6 +185,8 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         }
 
         inactivityTimer.onResume();
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+        sensorManager.registerListener(this, magnetic, SensorManager.SENSOR_DELAY_GAME);
     }
 
     @Override
@@ -180,6 +231,97 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
     }
 
+    @Override
+    public void onAccuracyChanged( Sensor sensor, int accuracy ) {
+
+    }
+
+    @Override
+    public void onSensorChanged( SensorEvent event ) {
+
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            accelerometerValues = event.values;
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            magneticFieldValues = event.values;
+        }
+    }
+
+    /**
+     * 根据加速度感应器、地磁场感应器获取手机方向传感器value数组
+     * blog.csdn.net/u010784534/article/details/47836165
+     *
+     * @return
+     */
+    private float[] getOrientionValues() {
+        float[] values = new float[3];
+        float[] R = new float[9];
+        SensorManager.getRotationMatrix(R, null, accelerometerValues, magneticFieldValues);
+        SensorManager.getOrientation(R, values);
+        return values;
+    }
+
+    /**
+     * 手机方向传感器value数组判断手机是否水平放置
+     *
+     * @param orientionValues
+     * @return
+     */
+    private boolean isHorizontalValue( float[] orientionValues ) {
+        return isHorizontalValue(orientionValues[1]) && isHorizontalValue(orientionValues[2]);
+    }
+
+    /**
+     * oriention是否为手机水平放置的值
+     *
+     * @param oriention
+     * @return
+     */
+    private boolean isHorizontalValue( float oriention ) {
+        int angle = (int) Math.toDegrees(oriention);
+        return (angle >= -45 && angle <= 45);
+    }
+
+    /**
+     * 获取手机屏幕方向，竖直放置时，获取OrientationEventListener返回的方向，水平放置时，根据SensorManager.getOrientation获取
+     * 统一转换成 上：0，右：90，下：180，左：270
+     *
+     * @return
+     */
+    private int getOrientation() {
+        float[] values = getOrientionValues();
+        float orientation = -1f;
+        if (isHorizontalValue(values)) {
+            //转化成与竖直放置时相同的角度
+            orientation = (float) Math.toDegrees(values[0]) + 180;
+            orientation = orientation < 360 ? orientation : orientation - 360;
+        } else {
+            orientation = mOrientation;
+        }
+        orientation = angle2Orientation(orientation);
+        return (int) orientation;
+    }
+
+    /**
+     * 角度转化成方向，二维坐标系中，Y轴正方向为0度，顺时针增大一周为360度
+     *
+     * @param angle
+     * @return
+     */
+    private int angle2Orientation( float angle ) {
+        int orientation = -1;
+        if ((angle > 315 && angle <= 360) || (angle >= 0 && angle <= 45)) {
+            orientation = DIRECTION_UP;
+        } else if (angle > 45 && angle <= 135) {
+            orientation = DIRECTION_RIGHT;
+        } else if (angle > 135 && angle <= 225) {
+            orientation = DIRECTION_DOWN;
+        } else if (angle > 225 && angle <= 315) {
+            orientation = DIRECTION_LEFT;
+        }
+        return orientation;
+    }
+
+
     /**
      * A valid barcode has been found, so give an indication of success and show
      * the results.
@@ -207,13 +349,9 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         bundle.putInt("width", mCropRect.width());
         bundle.putInt("height", mCropRect.height());
 
-        Log.d(TAG, "handleDecode() returned: " + resultList.size() + "---" + resultList.toString());
-
         ArrayList<String> lis = new ArrayList<>();
         for (int i = 0; i < resultList.size(); i++) {
-
             lis.add(resultList.get(i).getText());
-
         }
         ArrayList<ResultParcel> listRseult = new ArrayList<>();
 
@@ -227,6 +365,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
         }
         bundle.putStringArrayList("result", lis);
         bundle.putParcelableArrayList(RESULT_LIST, listRseult);
+        resultIntent.putExtra(ORIENTATION, getOrientation());
 
         resultIntent.putExtras(bundle);
         this.setResult(RESULT_OK, resultIntent);
