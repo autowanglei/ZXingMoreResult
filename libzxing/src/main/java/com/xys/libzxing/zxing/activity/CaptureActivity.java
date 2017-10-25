@@ -59,8 +59,7 @@ import java.util.List;
  */
 public final class CaptureActivity extends Activity implements SurfaceHolder.Callback {
 
-    //    private static final String TAG = CaptureActivity.class.getSimpleName();
-    private static final String TAG = "123";
+    private static final String TAG = CaptureActivity.class.getSimpleName();
 
     private CameraManager cameraManager;
     private CaptureActivityHandler handler;
