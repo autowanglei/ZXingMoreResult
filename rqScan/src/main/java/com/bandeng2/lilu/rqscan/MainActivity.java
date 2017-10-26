@@ -15,7 +15,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.bandeng2.lilu.rqscan.utils.FinderPatternIndex;
 import com.bandeng2.lilu.rqscan.utils.QRDirection;
 import com.xys.libzxing.zxing.activity.CaptureActivity;
 import com.xys.libzxing.zxing.activity.ResultParcel;
